@@ -75,6 +75,8 @@ class VectorStore:
         """
         print("💾 Initializing Qdrant vector store...")
         print(f"  🔗 Connecting to: {settings.QDRANT_URL}")
+        print(f"  🔑 QDRANT_API_KEY configured: {bool(settings.QDRANT_API_KEY)}")
+        print(f"  📦 Collection: {settings.COLLECTION_NAME}")
         
         # Create Qdrant client
         if settings.QDRANT_API_KEY:
@@ -88,13 +90,26 @@ class VectorStore:
             self.client = QdrantClient(url=settings.QDRANT_URL)
         
         self.collection_name = settings.COLLECTION_NAME
-        self.embedding_model = EmbeddingModel()
+        self._embedding_model = None  # Lazy - NOT loaded during startup
         
         # Ensure collection exists
         self._ensure_collection()
         
         print(f"  ✅ Collection '{self.collection_name}' ready")
         print(f"  📊 Current point count: {self.get_count()}")
+
+    @property
+    def embedding_model(self):
+        """
+        Lazily create the EmbeddingModel on first embedding call.
+        
+        Qdrant connection, health checks, get_count(), and stats never
+        need the SentenceTransformer model, so it stays unloaded until
+        an actual embedding operation (add_chunks / search) runs.
+        """
+        if self._embedding_model is None:
+            self._embedding_model = EmbeddingModel()
+        return self._embedding_model
     
     def _ensure_collection(self):
         """

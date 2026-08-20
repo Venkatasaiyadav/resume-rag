@@ -28,6 +28,7 @@ from app.ingestion.pipeline import IngestionPipeline
 from app.retrieval.hybrid_retriever import HybridRetriever
 from app.generation.prompt_builder import PromptBuilder
 from app.generation.llm_client import LLMClient
+from app.config import settings
 
 router = APIRouter()
 
@@ -306,7 +307,7 @@ async def get_stats():
             "vector_store_count": p.vector_store.get_count(),
             "bm25_indexed": p.bm25_index._is_built,
             "bm25_chunk_count": len(p.bm25_index.chunks) if p.bm25_index._is_built else 0,
-            "embedding_model": p.vector_store.embedding_model.model.get_sentence_embedding_dimension(),
+            "embedding_model": settings.EMBEDDING_DIMENSION,
         }
     except Exception as e:
         return {"error": str(e)}
