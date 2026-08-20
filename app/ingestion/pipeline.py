@@ -29,9 +29,13 @@ class IngestionPipeline:
         self.chunker = ResumeChunker()
         self.vector_store = VectorStore()
         self.bm25_index = BM25Index()
-        # Restore persisted BM25 index so retrieval works across restarts
-        if self.vector_store.get_count() > 0:
-            self.bm25_index.load_index()
+        # Restore persisted BM25 index so retrieval works across restarts.
+        # The pickle file only exists locally (storage/ is gitignored), so on
+        # fresh deployments we rebuild the index from the Qdrant payloads.
+        if self.vector_store.get_count() > 0 and not self.bm25_index.load_index():
+            print("🚧 BM25 pickle not found - rebuilding index from Qdrant collection...")
+            self.bm25_index.build_index(self.vector_store.get_all_chunks())
+            self.bm25_index.save_index()
     
     def ingest(self, pdf_path: str, force_reindex: bool = False) -> dict:
         """

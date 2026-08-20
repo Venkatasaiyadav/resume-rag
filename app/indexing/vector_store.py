@@ -268,6 +268,44 @@ class VectorStore:
             print(f"  ⚠️ Could not get count: {e}")
             return 0
     
+    def get_all_chunks(self) -> List[Chunk]:
+        """
+        Read all stored chunks back from the Qdrant collection.
+
+        Used to rebuild the BM25 index without re-ingesting the PDF
+        (payloads already contain the chunk text - no embedding needed).
+
+        Returns:
+            List of Chunk objects reconstructed from the payloads.
+        """
+        chunks = []
+        next_offset = None
+        
+        while True:
+            points, next_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=100,
+                offset=next_offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for point in points:
+                payload = point.payload or {}
+                chunks.append(Chunk(
+                    text=payload.get("text", ""),
+                    metadata={
+                        "section": payload.get("section", "Unknown"),
+                        "source": payload.get("source", "Unknown"),
+                        "chunk_index": payload.get("chunk_index", 0),
+                        "char_count": payload.get("char_count", 0),
+                    },
+                    chunk_id=payload.get("chunk_id", str(point.id)),
+                ))
+            if next_offset is None:
+                break
+        
+        return chunks
+    
     def get_collection_info(self) -> Dict:
         """Get detailed info about the collection (for debugging)"""
         try:
